@@ -1,8 +1,11 @@
 # Setting up the project
 
-### Create a folder the run 
 ```
+#Create a folder then run 
 
+mkdir Project && cd Project
+git clone https://github.com/euginekoyo/WifiServer.git
+cd wifiServer
 ```
 
 ```
