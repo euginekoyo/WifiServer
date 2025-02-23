@@ -1,103 +1,92 @@
-# from flask import request, jsonify, current_app as app
-# from app import db
-# from app.models import User, OTP,Package
-# from twilio.rest import Client
-# from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-# from datetime import datetime, timedelta
-# import os
-# import random
+from flask import request, jsonify, current_app as app
+from app import db
+from app.models import Package,User
+import os
+from twilio.rest import Client
+
+ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+VERIFY_SID = os.getenv("TWILIO_SERVICE_SID")  # Replace with your Verify Service SID
 
 
-# #
-# # Twilio Configuration (from Config)
-# client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+# Twilio Client
+client = Client(ACCOUNT_SID, AUTH_TOKEN)
 
-# def generate_otp():
-#     """Generates a 6-digit OTP."""
-#     return str(random.randint(100000, 999999))
 
-# def send_sms(phone, otp_code):
-#     """Sends OTP via Twilio."""
-#     return client.messages.create(
-#         body=f"Your OTP code is: {otp_code}",
-#         from_=os.getenv("TWILIO_PHONE_NUMBER"),
-#         to=phone
-#     )
+@app.route("/otp/send", methods=["POST"])
+def send_otp():
+    """Sends an OTP to the provided phone number."""
+    data = request.get_json(silent=True)
+    phone = data.get("phone")
 
-# @app.route('/send-otp', methods=['POST'])
-# def send_otp():
-#     """Sends an OTP to the given phone number."""
-#     data = request.get_json()
-#     phone = data.get("phone")
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
 
-#     if not phone:
-#         return jsonify({"error": "Phone number is required"}), 400
+    try:
+        verification = client.verify.v2.services(VERIFY_SID) \
+            .verifications.create(to=phone, channel="sms")
+        User.query.filter_by(phone=phone).delete()
+        new_user=User(phone=phone)
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({
+            "message": "OTP sent successfully",
+            "status": verification.status
+        }), 200
 
-#     user = User.query.filter_by(phone=phone).first()
-#     if not user:
-#         user = User(phone=phone)
-#         db.session.add(user)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-#     # Generate OTP & Save to DB (Replaces old OTP if exists)
-#     otp_code = generate_otp()
-#     expires_at = datetime.utcnow() + timedelta(minutes=5)
+@app.route("/otp/verify", methods=["POST"])
+def verify_otp():
+    """Verifies the OTP entered by the user."""
+    data = request.json
+    phone = data.get("phone")
+    otp_code = data.get("otp_code")
+
+    if not phone or not otp_code:
+        return jsonify({"error": "Phone number and OTP code are required"}), 400
+
+    try:
+        verification_check = client.verify.v2.services(VERIFY_SID) \
+            .verification_checks.create(to=phone, code=otp_code)
+
+        if verification_check.status == "approved":
+            return jsonify({"message": "OTP verified successfully"}), 200
+        else:
+            return jsonify({"error": "Invalid OTP"}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
-#     OTP.query.filter_by(phone=phone).delete()  # Remove existing OTPs for this user
-#     new_otp = OTP(phone=phone, otp_code=otp_code, expires_at=expires_at)
-#     db.session.add(new_otp)
-#     db.session.commit()
 
-#     send_sms(phone, otp_code)  # Send OTP via Twilio
-
-#     return jsonify({"message": "OTP sent successfully"}), 200
-
-# @app.route('/verify-otp', methods=['POST'])
-# def verify_otp():
-#     """Verifies the OTP and authenticates the user."""
-#     data = request.get_json()
-#     phone, otp_code = data.get("phone"), data.get("otp")
-
-#     if not phone or not otp_code:
-#         return jsonify({"error": "Phone and OTP are required"}), 400
-
-#     otp_entry = OTP.query.filter_by(phone=phone, otp_code=otp_code).first()
-
-#     if not otp_entry or datetime.utcnow() > otp_entry.expires_at:
-#         return jsonify({"error": "Invalid or expired OTP"}), 400
-
-#     user = User.query.filter_by(phone=phone).first()
-#     user.is_verified = True
-
-#     db.session.delete(otp_entry)  # Remove OTP after verification
-#     db.session.commit()
-
-#     access_token = create_access_token(identity=phone)
-
-#     return jsonify({"message": "OTP verified successfully", "token": access_token}), 200
-
-# @app.route('/dashboard', methods=['GET'])
-# @jwt_required()
-# def dashboard():
-#     """Protected route that requires authentication."""
-#     phone = get_jwt_identity()
-#     return jsonify({"message": f"Welcome to your dashboard, {phone}!"}), 200
-    
-    
-# @app.route("/packege", methods=['POST'])
-# def addPackages():
-#     data=request.get_json()
-#     name=data.get("name")
-#     price=data.get("price")
-#     status=data.get("status")
+@app.route("/package", methods=['POST'])
+def addPackages():
+    data=request.get_json()
+    time=data.get("time")
+    description=data.get("description")
+    price=data.get("price")
+    status=data.get("status")
      
-#     if not name or not price or not status:
-#         return jsonify({"error":"Enter all details of the package"}) 
+    if not price or not description or not price or not status:
+        return jsonify({"error":"Enter all details of the package"}) ,400
     
-#     Package.query.filter_by(name=name).delete()
+    Package.query.filter_by(time=time).delete()
     
-#     new_package=Package(name=name,price=price,status=status)
-#     db.session.add(new_package)
-#     db.session.commit()
+    new_package=Package(time=time,description=description,price=price,status=status)
+    db.session.add(new_package)
+    db.session.commit()
     
-#     return jsonify({"Message":"successfully added packege{new_packages}"})
-    
+    return jsonify({"Message":"successfully added packege{new_packages}"}),200
+
+@app.route("/packages",methods=["GET"])
+def getPackages():
+    packages=Package.query.all()
+    return jsonify([pkgs.to_dict() for pkgs in packages]),200
+
+# @app.route("/getPackageID/<int:id>",methods=["GET"])
+# def getPackageID(id):
+#     package=Package.query.get(id)
+#     if not package:
+#         return jsonify({"error":"Package not found"}),400
+#     return jsonify(package.to_dict()),200
