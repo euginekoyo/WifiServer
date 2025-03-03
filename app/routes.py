@@ -89,7 +89,7 @@ def login():
     if not user:
         return jsonify({"error": "User not found"}), 404
     
-    access_token = create_access_token(identity=user.id)  # Create JWT token
+    access_token = create_access_token(identity=str(user.id))  # Create JWT token
     return jsonify({
         "message": "Login successful", 
         "token": access_token,
@@ -177,10 +177,14 @@ def addPackages():
     return jsonify({"message": "Successfully added package"}), 200
 
 @app.route("/packages", methods=["GET"])
-# @jwt_required()  # Any authenticated user can view packages
+@jwt_required()  # Any authenticated user can view packages
 def getPackages():
-    packages = Package.query.all()
-    return jsonify([pkgs.to_dict() for pkgs in packages]), 200
+    try:
+        packages = Package.query.all()
+        return jsonify([pkgs.to_dict() for pkgs in packages]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/getUser", methods=['GET'])
 @admin_required()  # Only admins can view all users
@@ -220,7 +224,7 @@ def change_role(user_id):
         return jsonify({"error": "User not found"}), 404
     
     user.role = new_role
-    db.session.commit()
+    db.session.commit()     
     
     return jsonify({
         "message": f"User role updated successfully",
