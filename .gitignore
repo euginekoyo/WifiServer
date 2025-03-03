@@ -1,3 +1,24 @@
-env
+
 .flaskenv
+# Virtual environment
+venv/
 .env
+*.pyc
+__pycache__/
+instance/
+
+# Configuration and sensitive data
+config.py
+.env
+
+# Logs and cache
+*.log
+logs/
+*.sqlite3
+*.db
+
+# IDE and editor settings
+.vscode/
+*.swp
+.idea/
+*.sublime-workspace
