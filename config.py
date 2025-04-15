@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+import stripe
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -19,7 +21,5 @@ class Config:
 
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # Token expiration time
-#     TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-#     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-#     TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
-# # 
+
+    STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
